@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { pool } from "./database";
+import projectRoutes from "./routes/project.routes";
 
 const app = express();
 
@@ -11,6 +12,8 @@ interface TesttableRow {
   test: number;
   field2: boolean;
 }
+
+app.use("/projects", projectRoutes);
 
 app.listen(process.env.PORT || 5000, async () => {
   try {
