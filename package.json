@@ -1,0 +1,25 @@
+{
+  "name": "kanbangpt",
+  "version": "1.0.0",
+  "description": "An ai chat interface kanban project tracker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NickDeLu/kanbangpt.git"
+  },
+  "author": "Nicolas De Luca",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NickDeLu/kanbangpt/issues"
+  },
+  "homepage": "https://github.com/NickDeLu/kanbangpt#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "pg": "^8.19.0"
+  }
+}
