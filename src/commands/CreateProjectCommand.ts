@@ -10,7 +10,7 @@ export class CreateProjectCommand implements Command {
 
     const project = await ProjectRepository.createProject(this.title);
 
-    const defaultStatuses = ["Todo", "In Progress", "Done"];
+    const defaultStatuses = ["To Do", "In Progress", "Done"];
 
     for (let i = 0; i < defaultStatuses.length; i++) {
       await pool.query(

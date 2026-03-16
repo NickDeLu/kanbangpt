@@ -1,70 +1,52 @@
-// const WebSocket = require("ws");
-
-// const ws = new WebSocket("ws://localhost:3000");
-
-// ws.on("open", () => {
-
-//   console.log("Connected to KanbanGPT");
-
-//   ws.send(JSON.stringify({
-//     type: "userMessage",
-//     text: "create a project called AI Startup"
-//   }));
-
-// });
-
-// ws.on("message", (data) => {
-
-//   const msg = JSON.parse(data.toString());
-
-//   console.log("SERVER:", msg);
-
-// });
-
-// ws.on("close", () => {
-//   console.log("Disconnected");
-// });
 const WebSocket = require("ws");
 
 const ws = new WebSocket("ws://localhost:3000");
 
+// We'll collect the full response here
 let fullMessage = "";
 
 ws.on("open", () => {
   console.log("Connected to KanbanGPT");
 
-  ws.send(JSON.stringify({
-    type: "userMessage",
-    text: "create a project called AI Startup"
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "userMessage",
+      text: "create a project called AI Startup and a task called Build MVP in the AI Startup project and move the status from To Do, to In Progress",
+    })
+  );
 });
 
 ws.on("message", (data) => {
-  const lines = data.toString().split("\n");
-  for (let line of lines) {
-    line = line.trim();
-    if (!line || !line.startsWith("data:")) continue;
+  const msg = JSON.parse(data.toString());
 
-    const payload = line.replace(/^data:\s*/, '');
-    if (payload === "[DONE]") {
-      console.log("\n=== FINAL OUTPUT ===\n");
-      console.log(fullMessage);
-      console.log("\n====================\n");
-      return;
-    }
+  // Log each chunk if you want to debug
+  console.log("SERVER:", msg);
 
-    try {
-      const obj = JSON.parse(payload);
-      const content = obj.choices?.[0]?.delta?.content;
-      if (content) {
-        fullMessage += content;
+  // Only accumulate the 'content' from text chunks
+  if (msg.type === "textChunk") {
+    const chunk = msg.data;
+
+    // The 'data:' lines are actually part of the Server-Sent Events format
+    // We'll try to parse each one
+    chunk.split("\n\n").forEach((line) => {
+      if (line.startsWith("data: ")) {
+        const jsonStr = line.slice(6); // remove 'data: '
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const delta = parsed.choices?.[0]?.delta;
+          if (delta?.content) {
+            fullMessage += delta.content;
+          }
+        } catch (err) {
+          // ignore parse errors (like [DONE])
+        }
       }
-    } catch (err) {
-      // ignore non-JSON lines
-    }
+    });
   }
 });
 
 ws.on("close", () => {
   console.log("Disconnected");
+  console.log("\n=== FULL MESSAGE ===\n");
+  console.log(fullMessage);
 });

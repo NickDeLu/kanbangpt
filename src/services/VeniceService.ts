@@ -9,7 +9,34 @@ export class VeniceService {
       {
         model: process.env.VENICE_MODEL,
         messages,
-        stream: true
+        stream: true,
+        response_format: {
+            type: "json_schema",
+            json_schema: {
+                name: "tool_call_response",
+                strict: true,
+                schema: {
+                type: "object",
+                properties: {
+                    tools: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                tool: { type: "string" },
+                                args: { type: "object" }
+                            },
+                            required: ["tool", "args"],
+                            additionalProperties: false
+                        }
+                    },
+                    text: { type: "string" }  // optional free text
+                },
+                required: ["tools", "text"],
+                additionalProperties: false
+                }
+            }
+            }
       },
       {
         headers: {
