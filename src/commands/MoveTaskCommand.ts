@@ -11,7 +11,7 @@ export class MoveTaskCommand implements Command {
     private newStatus: string
   ) {}
 
-  async execute(): Promise<void> {
+  async execute(): Promise<any> {
 
     const project = await ProjectRepository.findByTitle(this.projectTitle);
 
@@ -21,6 +21,11 @@ export class MoveTaskCommand implements Command {
     );
 
     await TaskRepository.moveTask(this.taskId, status.id);
+
+    return {
+      success: true,
+      message: `Moved task ${this.taskId} to ${this.newStatus}`
+    };
 
   }
 

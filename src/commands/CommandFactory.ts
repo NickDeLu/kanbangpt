@@ -3,6 +3,8 @@ import { CreateProjectCommand } from "./CreateProjectCommand";
 import { CreateTaskCommand } from "./CreateTaskCommand";
 import { MoveTaskCommand } from "./MoveTaskCommand";
 import { DeleteProjectCommand } from "./DeleteProjectCommand";
+import { ListProjectsCommand } from "./ListProjectsCommand";
+import { ListTasksCommand } from "./ListTasksCommand";
 
 export class CommandFactory {
 
@@ -29,6 +31,14 @@ export class CommandFactory {
 
       case "delete_project":
         return new DeleteProjectCommand(
+          toolCall.args.project_title
+        );
+
+      case "list_projects":
+        return new ListProjectsCommand();
+
+      case "list_tasks":
+        return new ListTasksCommand(
           toolCall.args.project_title
         );
 

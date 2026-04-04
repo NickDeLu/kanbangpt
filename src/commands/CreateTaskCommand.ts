@@ -11,7 +11,7 @@ export class CreateTaskCommand implements Command {
     private description: string
   ) {}
 
-  async execute(): Promise<void> {
+  async execute(): Promise<any> {
 
     const project = await ProjectRepository.findByTitle(this.projectTitle);
 
@@ -20,7 +20,13 @@ export class CreateTaskCommand implements Command {
       this.statusTitle
     );
 
-    await TaskRepository.createTask(status.id, this.description);
+    const task = await TaskRepository.createTask(status.id, this.description);
+
+    return {
+      id: task.id,
+      description: this.description,
+      status_title: this.statusTitle
+    };
 
   }
 

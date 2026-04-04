@@ -78,7 +78,7 @@
 
 
 import { ToolCallParser } from "../ai/ToolCallParser";
-import { CommandFactory } from "../commands/CommandFactory";
+import { ToolChainExecutor } from "../ai/ToolChainExecutor";
 
 export class StreamProcessor {
 
@@ -133,34 +133,9 @@ export class StreamProcessor {
 
             const { tools, text } = result;
 
-            // Execute tools sequentially
-            for (const tool of tools) {
-
-              socket.send(JSON.stringify({
-                type: "toolDetected",
-                data: tool
-              }));
-
-              try {
-
-                const command = CommandFactory.create(tool);
-                await command.execute();
-
-                socket.send(JSON.stringify({
-                  type: "commandSuccess",
-                  data: tool.tool
-                }));
-
-              } catch (err: any) {
-
-                console.error("Tool execution error:", err);
-
-                socket.send(JSON.stringify({
-                  type: "commandError",
-                  data: err.message
-                }));
-              }
-            }
+            // Execute tools with chaining
+            const executor = new ToolChainExecutor(socket);
+            await executor.executeTools(tools);
 
             // Stream final AI text
             if (text) {

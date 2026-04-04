@@ -19,4 +19,15 @@ export class TaskRepository {
     );
   }
 
+  static async listTasks(projectTitle: string) {
+    const result = await pool.query(`
+      SELECT t.id, t.task_description as description, s.status_title as status_title, p.project_title as project_title
+      FROM Task t
+      JOIN Status s ON t.status_id = s.id
+      JOIN Project p ON s.project_id = p.id
+      WHERE p.project_title = $1
+    `, [projectTitle]);
+    return result.rows;
+  }
+
 }

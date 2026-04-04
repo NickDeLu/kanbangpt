@@ -25,4 +25,11 @@ export class ProjectRepository {
     return result.rows[0];
   }
 
+  static async listProjects() {
+    const result = await pool.query(
+      "SELECT id, project_title as title FROM Project"
+    );
+    return result.rows;
+  }
+
 }

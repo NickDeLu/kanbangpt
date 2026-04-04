@@ -6,7 +6,7 @@ export class CreateProjectCommand implements Command {
 
   constructor(private title: string) {}
 
-  async execute(): Promise<void> {
+  async execute(): Promise<any> {
 
     const project = await ProjectRepository.createProject(this.title);
 
@@ -19,6 +19,11 @@ export class CreateProjectCommand implements Command {
         [project.id, defaultStatuses[i], i]
       );
     }
+
+    return {
+      id: project.id,
+      title: this.title
+    };
 
   }
 

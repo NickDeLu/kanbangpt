@@ -54,6 +54,14 @@ Available tools:
    - args: { task_id: string, project_title: string, new_status: string }
 4. delete_project
    - args: { project_title: string }
+5. list_projects
+   - args: {} (no args)
+6. list_tasks
+   - args: { project_title: string }
+
+Tool Chaining:
+Tools are executed in order. To use results from previous tools, reference them in args using: "$tool_name.result.field" for object fields, or "$tool_name.result[index].field" for array elements.
+Example: { "task_id": "$create_task.result.id" }
 
 Example:
 
