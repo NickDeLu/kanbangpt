@@ -10,4 +10,12 @@ export class StatusRepository {
     return result.rows[0];
   }
 
+  static async listStatuses(projectId: number) {
+    const result = await pool.query(
+      "SELECT id, status_title, status_order FROM Status WHERE project_id = $1 ORDER BY status_order",
+      [projectId]
+    );
+    return result.rows;
+  }
+
 }

@@ -2,10 +2,11 @@ import { CommandFactory } from "../commands/CommandFactory";
 
 export class ToolChainExecutor {
 
-  constructor(private socket: any) {}
+  constructor(private socket: any, private onToolResult?: (toolName: string, result: any) => void) {}
 
   async executeTools(tools: any[]): Promise<void> {
     const results: { [key: string]: any } = {};
+    const toolResults: Array<{ tool: string; result: any }> = [];
 
     for (const tool of tools) {
       // Substitute args
@@ -17,31 +18,63 @@ export class ToolChainExecutor {
         args: substitutedArgs
       });
 
-      // Send tool detected
+      // Send tool detected with resolved args
       this.socket.send(JSON.stringify({
         type: "toolDetected",
-        data: tool
+        data: {
+          tool: tool.tool,
+          args: substitutedArgs
+        }
       }));
 
       try {
         // Execute and store result
         const result = await command.execute();
         results[tool.tool] = result;
+        toolResults.push({ tool: tool.tool, result });
 
         // Send success
         this.socket.send(JSON.stringify({
           type: "commandSuccess",
           data: tool.tool
         }));
+
+        // Send tool result to frontend for display
+        this.socket.send(JSON.stringify({
+          type: "toolResult",
+          tool: tool.tool,
+          data: result
+        }));
+
+        // Notify callback about tool result for conversation history
+        if (this.onToolResult) {
+          this.onToolResult(tool.tool, result);
+        }
+
+        // If the tool also returned a string result (e.g., summarize_project), send it as text too
+        if (typeof result === "string") {
+          this.socket.send(JSON.stringify({
+            type: "textChunk",
+            data: result
+          }));
+        }
       } catch (err: any) {
         console.error("Tool execution error:", err);
         this.socket.send(JSON.stringify({
           type: "commandError",
           data: err.message
         }));
-        throw err; // Re-throw to stop chain?
+        throw err;
       }
     }
+
+    // Deterministic signal that the entire tool chain has finished.
+    this.socket.send(JSON.stringify({
+      type: "toolChainComplete",
+      data: {
+        toolResults
+      }
+    }));
   }
 
   private substituteArgs(args: any, results: { [key: string]: any }): any {

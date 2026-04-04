@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KanbanGPT - AI Project Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            text-align: center;
+            color: white;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.tool {
+            background: rgba(255, 255, 255, 0.7);
+            color: #666;
+            align-self: center;
+            font-size: 0.9em;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .message.success {
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+            align-self: center;
+            font-size: 0.9em;
+        }
+
+        .confirmation-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+
+        .btn.confirm {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn.confirm:hover {
+            background: #218838;
+        }
+
+        .btn.cancel {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn.cancel:hover {
+            background: #c82333;
+        }
+
+        .input-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 1em;
+            outline: none;
+        }
+
+        .message-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .send-btn {
+            padding: 0.75rem 1.5rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover {
+            background: #0056b3;
+        }
+
+        .send-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .status.connected {
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+        }
+
+        .status.disconnected {
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+        }
+
+        .status.connecting {
+            background: rgba(255, 193, 7, 0.9);
+            color: #333;
+        }
+
+        .typing {
+            display: none;
+            font-style: italic;
+            color: #666;
+            padding: 0.5rem 1rem;
+        }
+
+        .tool-execution {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            margin: 0.25rem 0;
+            border-radius: 6px;
+            font-size: 0.9em;
+            align-self: flex-start;
+            max-width: 70%;
+            transition: all 0.3s ease;
+        }
+
+        .tool-execution.executing {
+            background: rgba(108, 117, 125, 0.1);
+            border: 1px solid rgba(108, 117, 125, 0.3);
+            color: #6c757d;
+        }
+
+        .tool-execution.success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #28a745;
+            animation: successPulse 0.5s ease;
+        }
+
+        .tool-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .tool-icon.loading {
+            background: #6c757d;
+            animation: spin 1s linear infinite;
+        }
+
+        .tool-icon.loading::before {
+            content: "⟳";
+        }
+
+        .tool-icon.success {
+            background: #28a745;
+        }
+
+        .tool-icon.success::before {
+            content: "✓";
+            color: white;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .tool-result {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            overflow: hidden;
+            align-self: flex-start;
+            max-width: 80%;
+        }
+
+        .tool-result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(0, 123, 255, 0.1);
+            cursor: pointer;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .tool-name {
+            font-weight: bold;
+            color: #007bff;
+            text-transform: capitalize;
+        }
+
+        .toggle-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+
+        .toggle-btn:hover {
+            background: #0056b3;
+        }
+
+        .tool-result-content {
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .json-data {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 0;
+            font-size: 0.85em;
+            line-height: 1.4;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .tool-batch {
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            border-radius: 10px;
+            align-self: flex-start;
+            max-width: 86%;
+            overflow: hidden;
+        }
+
+        .tool-batch-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0.9rem;
+            background: rgba(0, 123, 255, 0.12);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tool-batch-title {
+            font-weight: 600;
+            color: #0056b3;
+        }
+
+        .tool-batch-body {
+            padding: 0.45rem 0.6rem 0.6rem;
+            display: block;
+        }
+
+        .tool-batch.collapsed .tool-batch-body {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 KanbanGPT</h1>
+        <p>AI-Powered Project Management Assistant</p>
+    </div>
+
+    <div class="chat-container">
+        <div class="messages" id="messages">
+            <div class="message ai">
+                Hello! I'm your AI project management assistant. I can help you create projects, manage tasks, and organize your work. What would you like to do today?
+            </div>
+        </div>
+
+        <div class="typing" id="typing">AI is thinking...</div>
+
+        <div class="input-container">
+            <input type="text" class="message-input" id="messageInput" placeholder="Ask me to create a project, manage tasks, or get project summaries..." />
+            <button class="send-btn" id="sendBtn">Send</button>
+        </div>
+    </div>
+
+    <div class="status disconnected" id="status">Disconnected</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        class KanbanGPT {
+            constructor() {
+                this.ws = null;
+                this.messagesEl = document.getElementById('messages');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendBtn = document.getElementById('sendBtn');
+                this.statusEl = document.getElementById('status');
+                this.typingEl = document.getElementById('typing');
+                this.pendingConfirmation = null;
+                this.toolExecutionCounter = 0;
+                this.activeToolExecutions = new Map(); // toolName -> executionId
+                this.streamingAiMessageEl = null;
+                this.streamingAiText = '';
+                this.evaluationRequestedThisTurn = false;
+                this.currentToolBatchEl = null;
+                this.currentToolBatchBodyEl = null;
+                this.currentToolBatchTitleEl = null;
+                this.currentToolBatchCount = 0;
+
+                this.init();
+            }
+
+            init() {
+                this.connect();
+                this.setupEventListeners();
+            }
+
+            connect() {
+                this.updateStatus('connecting', 'Connecting...');
+
+                try {
+                    this.ws = new WebSocket('ws://localhost:3000');
+
+                    this.ws.onopen = () => {
+                        this.updateStatus('connected', 'Connected');
+                        console.log('Connected to KanbanGPT');
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        this.handleMessage(JSON.parse(event.data));
+                    };
+
+                    this.ws.onclose = () => {
+                        this.updateStatus('disconnected', 'Disconnected');
+                        console.log('Disconnected from KanbanGPT');
+                        // Auto-reconnect after 3 seconds
+                        setTimeout(() => this.connect(), 3000);
+                    };
+
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.updateStatus('disconnected', 'Connection Error');
+                    };
+
+                } catch (error) {
+                    console.error('Failed to connect:', error);
+                    this.updateStatus('disconnected', 'Connection Failed');
+                }
+            }
+
+            setupEventListeners() {
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                this.sendBtn.addEventListener('click', () => {
+                    this.sendMessage();
+                });
+            }
+
+            sendMessage(text = null) {
+                const messageText = text || this.messageInput.value.trim();
+                if (!messageText || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+                // Add user message to chat
+                this.addMessage(messageText, 'user');
+
+                // Send to server
+                this.ws.send(JSON.stringify({
+                    type: 'userMessage',
+                    text: messageText
+                }));
+
+                // Clear input and disable send button
+                this.messageInput.value = '';
+                this.sendBtn.disabled = true;
+                this.streamingAiMessageEl = null;
+                this.streamingAiText = '';
+                this.evaluationRequestedThisTurn = false;
+                this.currentToolBatchEl = null;
+                this.currentToolBatchBodyEl = null;
+                this.currentToolBatchTitleEl = null;
+                this.currentToolBatchCount = 0;
+                this.showTyping();
+            }
+
+            handleMessage(msg) {
+                console.log('Received:', msg);
+
+                switch (msg.type) {
+                    case 'textChunk':
+                        this.hideTyping();
+                        this.appendAiChunk(msg.data);
+                        this.sendBtn.disabled = false;
+
+                        // Check if this is a confirmation request
+                        if (this.isConfirmationRequest(msg.data)) {
+                            this.showConfirmationButtons();
+                        }
+                        break;
+
+                    case 'toolDetected':
+                        console.log('Tool detected:', msg.data);
+                        this.addToolExecution(msg.data.tool || msg.data);
+                        break;
+
+                    case 'commandSuccess':
+                        console.log('Command success for tool:', msg.data);
+                        this.updateToolExecution(msg.data, 'success');
+                        break;
+
+                    case 'toolChainComplete':
+                        console.log('Tool chain complete:', msg.data);
+                        if (this.evaluationRequestedThisTurn) {
+                            console.log('Evaluation already requested for this turn, skipping.');
+                            break;
+                        }
+                        this.evaluationRequestedThisTurn = true;
+                        this.sendGhostEvaluationMessage(msg.data?.toolResults || []);
+                        break;
+
+                    case 'toolResult':
+                        console.log('Tool result:', msg.tool, msg.data);
+                        this.addToolResult(msg.tool, msg.data);
+                        break;
+
+                    default:
+                        console.log('Unknown message type:', msg.type);
+                }
+            }
+
+            addMessage(text, type) {
+                const messageEl = document.createElement('div');
+                messageEl.className = `message ${type}`;
+
+                // Render markdown for AI messages
+                if (type === 'ai') {
+                    messageEl.innerHTML = this.renderMarkdown(text);
+                } else {
+                    messageEl.textContent = text;
+                }
+
+                this.messagesEl.appendChild(messageEl);
+                this.scrollToBottom();
+            }
+
+            appendAiChunk(chunk) {
+                if (!chunk) return;
+
+                if (!this.streamingAiMessageEl) {
+                    this.streamingAiMessageEl = document.createElement('div');
+                    this.streamingAiMessageEl.className = 'message ai';
+                    this.streamingAiText = '';
+                    this.messagesEl.appendChild(this.streamingAiMessageEl);
+                }
+
+                this.streamingAiText += chunk;
+                this.streamingAiMessageEl.innerHTML = this.renderMarkdown(this.streamingAiText);
+                this.scrollToBottom();
+            }
+
+            ensureToolBatch() {
+                if (this.currentToolBatchEl) return;
+
+                const batchEl = document.createElement('div');
+                batchEl.className = 'tool-batch';
+
+                const headerEl = document.createElement('div');
+                headerEl.className = 'tool-batch-header';
+
+                const titleEl = document.createElement('span');
+                titleEl.className = 'tool-batch-title';
+                titleEl.textContent = 'Tool Calls (0)';
+
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'toggle-btn';
+                toggleBtn.textContent = '▲ Hide';
+
+                const bodyEl = document.createElement('div');
+                bodyEl.className = 'tool-batch-body';
+
+                const toggle = () => {
+                    const collapsed = batchEl.classList.toggle('collapsed');
+                    toggleBtn.textContent = collapsed ? '▼ Show' : '▲ Hide';
+                };
+
+                headerEl.onclick = toggle;
+                toggleBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    toggle();
+                };
+
+                headerEl.appendChild(titleEl);
+                headerEl.appendChild(toggleBtn);
+                batchEl.appendChild(headerEl);
+                batchEl.appendChild(bodyEl);
+
+                this.currentToolBatchEl = batchEl;
+                this.currentToolBatchBodyEl = bodyEl;
+                this.currentToolBatchTitleEl = titleEl;
+
+                this.messagesEl.appendChild(batchEl);
+            }
+
+            updateToolBatchTitle() {
+                if (!this.currentToolBatchTitleEl) return;
+                this.currentToolBatchTitleEl.textContent = `Tool Calls (${this.currentToolBatchCount})`;
+            }
+
+            addToolExecution(toolName) {
+                this.ensureToolBatch();
+                this.toolExecutionCounter++;
+                this.currentToolBatchCount++;
+                this.updateToolBatchTitle();
+                const executionId = `tool-${toolName}-${this.toolExecutionCounter}`;
+                
+                // Store mapping for later updates
+                if (!this.activeToolExecutions.has(toolName)) {
+                    this.activeToolExecutions.set(toolName, []);
+                }
+                this.activeToolExecutions.get(toolName).push(executionId);
+                
+                const toolEl = document.createElement('div');
+                toolEl.className = 'tool-execution executing';
+                toolEl.id = executionId;
+                toolEl.innerHTML = `
+                    <div class="tool-icon loading"></div>
+                    <span class="tool-text">Executing: ${toolName.replace('_', ' ')}</span>
+                `;
+                this.currentToolBatchBodyEl.appendChild(toolEl);
+                this.scrollToBottom();
+                
+                return executionId;
+            }
+
+            updateToolExecution(toolName, status) {
+                const executionIds = this.activeToolExecutions.get(toolName);
+                if (!executionIds || executionIds.length === 0) return;
+                
+                // Update the most recent execution of this tool
+                const executionId = executionIds[executionIds.length - 1];
+                const toolEl = document.getElementById(executionId);
+                
+                if (toolEl) {
+                    toolEl.className = `tool-execution ${status}`;
+                    const iconEl = toolEl.querySelector('.tool-icon');
+                    const textEl = toolEl.querySelector('.tool-text');
+
+                    if (status === 'success') {
+                        iconEl.className = 'tool-icon success';
+                        textEl.textContent = `Completed: ${toolName.replace('_', ' ')}`;
+                        // Remove from active executions
+                        executionIds.pop();
+                        if (executionIds.length === 0) {
+                            this.activeToolExecutions.delete(toolName);
+                        }
+                    }
+                }
+            }
+
+            isConfirmationRequest(text) {
+                console.log('Checking for confirmation in:', text);
+                // Only show confirmation for clear yes/no questions
+                const confirmationKeywords = ['confirm', 'yes or no', 'yes/no', 'proceed', 'sure', 'yes'];
+                const hasConfirmation = confirmationKeywords.some(keyword =>
+                    text.toLowerCase().includes(keyword)
+                );
+
+                // Must also have a question mark and be relatively short (avoid open-ended questions)
+                const result = hasConfirmation && text.includes('?') && text.length < 300;
+                console.log('Confirmation check result:', result, 'hasKeyword:', hasConfirmation, 'hasQuestion:', text.includes('?'), 'length:', text.length);
+                return result;
+            }
+
+    showConfirmationButtons() {
+        // Remove any existing confirmation buttons
+        const existingButtons = document.querySelector('.confirmation-buttons');
+        if (existingButtons) existingButtons.remove();
+
+                const buttonsContainer = document.createElement('div');
+                buttonsContainer.className = 'confirmation-buttons';
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'btn confirm';
+                confirmBtn.textContent = 'Confirm';
+                confirmBtn.onclick = () => {
+                    this.sendMessage('yes');
+                    buttonsContainer.remove();
+                };
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn cancel';
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.onclick = () => {
+                    this.sendMessage('no');
+                    buttonsContainer.remove();
+                };
+
+                buttonsContainer.appendChild(confirmBtn);
+                buttonsContainer.appendChild(cancelBtn);
+
+                // Add to the last AI message
+                const lastMessage = this.messagesEl.lastElementChild;
+                if (lastMessage && lastMessage.classList.contains('ai')) {
+                    lastMessage.appendChild(buttonsContainer);
+                }
+
+                this.scrollToBottom();
+            }
+
+            showTyping() {
+                this.typingEl.classList.add('show');
+                this.scrollToBottom();
+            }
+
+            hideTyping() {
+                this.typingEl.classList.remove('show');
+            }
+
+            updateStatus(status, text) {
+                this.statusEl.className = `status ${status}`;
+                this.statusEl.textContent = text;
+            }
+
+            addToolResult(toolName, data) {
+                this.ensureToolBatch();
+                const container = document.createElement('div');
+                container.className = 'tool-result';
+
+                const header = document.createElement('div');
+                header.className = 'tool-result-header';
+                header.innerHTML = `
+                    <span class="tool-name">📊 ${toolName.replace('_', ' ').toUpperCase()} Result</span>
+                    <button class="toggle-btn">▼ Show Data</button>
+                `;
+
+                const content = document.createElement('div');
+                content.className = 'tool-result-content';
+                content.style.display = 'none';
+
+                const jsonEl = document.createElement('pre');
+                jsonEl.className = 'json-data';
+                jsonEl.textContent = JSON.stringify(data, null, 2);
+                content.appendChild(jsonEl);
+
+                header.querySelector('.toggle-btn').onclick = () => {
+                    const isVisible = content.style.display !== 'none';
+                    content.style.display = isVisible ? 'none' : 'block';
+                    header.querySelector('.toggle-btn').textContent = isVisible ? '▼ Show Data' : '▲ Hide Data';
+                };
+
+                container.appendChild(header);
+                container.appendChild(content);
+
+                this.currentToolBatchBodyEl.appendChild(container);
+                this.scrollToBottom();
+            }
+
+            scrollToBottom() {
+                this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+            }
+
+            sendGhostEvaluationMessage(toolResults = []) {
+                console.log('Sending ghost evaluation message through normal userMessage rails');
+                this.streamingAiMessageEl = null;
+                this.streamingAiText = '';
+
+                const toolResultsText = toolResults.length > 0
+                    ? toolResults
+                        .map(tr => `- ${tr.tool}: ${JSON.stringify(tr.result)}`)
+                        .join('\n')
+                    : '- No tool results provided';
+
+                const ghostText = [
+                    'INTERNAL EVALUATION CONTEXT (do not mention this internal message):',
+                    '',
+                    'Tool execution results:',
+                    toolResultsText,
+                    '',
+                    'Evaluate whether the original user request is fully satisfied.',
+                    'If satisfied: return a final user-facing summary.',
+                    'If not satisfied and more tools are needed: call those tools now.',
+                    'If partially satisfied and no more tools are appropriate: explain clearly what was completed and what remains.'
+                ].join('\n');
+
+                this.ws.send(JSON.stringify({
+                    type: 'userMessage',
+                    text: ghostText,
+                    meta: {
+                        ghostEvaluation: true
+                    }
+                }));
+                this.showTyping();
+            }
+
+            renderMarkdown(text) {
+                // Check if marked is loaded
+                if (typeof marked === 'undefined') {
+                    console.warn('Marked library not loaded, falling back to plain text');
+                    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                              .replace(/\n/g, '<br>');
+                }
+
+                // Configure marked for safe rendering
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+                return marked.parse(text);
+            }
+        }
+
+        // Initialize the app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new KanbanGPT();
+        });
+    </script>
+</body>
+</html>

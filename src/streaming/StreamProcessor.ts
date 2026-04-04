@@ -82,9 +82,62 @@ import { ToolChainExecutor } from "../ai/ToolChainExecutor";
 
 export class StreamProcessor {
 
-  static async process(stream: any, socket: any) {
+  private static extractTextFromJsonBuffer(jsonBuffer: string): string | null {
+    const keyIndex = jsonBuffer.indexOf('"text"');
+    if (keyIndex === -1) return null;
+
+    const colonIndex = jsonBuffer.indexOf(":", keyIndex);
+    if (colonIndex === -1) return null;
+
+    const quoteStart = jsonBuffer.indexOf('"', colonIndex + 1);
+    if (quoteStart === -1) return null;
+
+    let i = quoteStart + 1;
+    let escaped = false;
+    let out = "";
+
+    while (i < jsonBuffer.length) {
+      const ch = jsonBuffer[i];
+
+      if (escaped) {
+        if (ch === "n") out += "\n";
+        else if (ch === "t") out += "\t";
+        else if (ch === "r") out += "\r";
+        else if (ch === '"') out += '"';
+        else if (ch === "\\") out += "\\";
+        else out += ch;
+        escaped = false;
+        i++;
+        continue;
+      }
+
+      if (ch === "\\") {
+        escaped = true;
+        i++;
+        continue;
+      }
+
+      if (ch === '"') {
+        return out;
+      }
+
+      out += ch;
+      i++;
+    }
+
+    // Text string is still in progress (no closing quote yet).
+    // Return what we have so far to enable true incremental streaming.
+    return out;
+  }
+
+  static async process(stream: any, socket: any, onResponseComplete?: (assistantText: string) => void, onToolResult?: (toolName: string, result: any) => void) {
 
     let sseBuffer = "";
+    let fullAssistantResponse: any = null;
+    let rawJsonBuffer = "";
+    let emittedTextLength = 0;
+
+    ToolCallParser.reset();
 
     stream.on("data", async (chunk: any) => {
 
@@ -107,6 +160,11 @@ export class StreamProcessor {
 
         if (jsonStr === "[DONE]") {
           console.log("Stream finished.");
+          // Call the completion callback with the full response
+          if (fullAssistantResponse && onResponseComplete) {
+            const responseStr = JSON.stringify(fullAssistantResponse);
+            onResponseComplete(responseStr);
+          }
           return;
         }
 
@@ -126,25 +184,40 @@ export class StreamProcessor {
             continue;
           }
 
+          // Stream visible text progressively while JSON is still incomplete.
+          rawJsonBuffer += content;
+          const partialText = StreamProcessor.extractTextFromJsonBuffer(rawJsonBuffer);
+          if (partialText !== null && partialText.length > emittedTextLength) {
+            const deltaText = partialText.slice(emittedTextLength);
+            emittedTextLength = partialText.length;
+            socket.send(JSON.stringify({
+              type: "textChunk",
+              data: deltaText
+            }));
+          }
+
           // Feed parser
           const result = ToolCallParser.extract(content);
 
           if (result) {
 
+            fullAssistantResponse = result;
             const { tools, text } = result;
 
-            // Execute tools with chaining
-            const executor = new ToolChainExecutor(socket);
-            await executor.executeTools(tools);
-
-            // Stream final AI text
-            if (text) {
-
+            // Flush any remaining text not already streamed.
+            if (text && text.length > emittedTextLength) {
+              const remainingText = text.slice(emittedTextLength);
+              emittedTextLength = text.length;
               socket.send(JSON.stringify({
                 type: "textChunk",
-                data: text
+                data: remainingText
               }));
+            }
 
+            // Only execute tools if tools array is not empty
+            if (tools && tools.length > 0) {
+              const executor = new ToolChainExecutor(socket, onToolResult);
+              await executor.executeTools(tools);
             }
 
           }
